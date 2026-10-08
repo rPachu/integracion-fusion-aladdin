@@ -143,4 +143,3 @@ IntegracionNewsan/IntegracionNewsan/
 
 - **Envío real a Fusion** (`Envio/EnvioFusion.cs`): implementar cuando Newsan defina el usuario técnico y la autenticación.
 - Confirmar con Newsan: origen del **número de serie** (`073-…/2026`), el campo **`ExternalSystemPackingUnit`** y dónde queda el **año modelo** en CAPATAZ.
-- Transferir este repositorio a una cuenta u organización de ULASOFT.
