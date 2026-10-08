@@ -24,6 +24,8 @@ public sealed class MotoDeclarada
     [JsonPropertyName("n_partida")] public string NroPartida { get; set; } = "";
     [JsonPropertyName("cod_deposi")] public string CodDeposito { get; set; } = "";
     [JsonPropertyName("fecha_declaracion")] public string FechaDeclaracion { get; set; } = "";
+    /// <summary>Hora del comprobante de la declaración (texto "HHmmss", ej. "120256").</summary>
+    [JsonPropertyName("hora_declaracion")] public string HoraDeclaracion { get; set; } = "";
     [JsonPropertyName("tipo_comprob")] public string TipoComprobante { get; set; } = "";
     [JsonPropertyName("nro_comprob")] public string NroComprobante { get; set; } = "";
 
@@ -49,6 +51,7 @@ public sealed class MotoDeclarada
         NroPartida = Limpio(NroPartida);
         CodDeposito = Limpio(CodDeposito);
         FechaDeclaracion = Limpio(FechaDeclaracion);
+        HoraDeclaracion = Limpio(HoraDeclaracion);
         TipoComprobante = Limpio(TipoComprobante);
         NroComprobante = Limpio(NroComprobante);
     }

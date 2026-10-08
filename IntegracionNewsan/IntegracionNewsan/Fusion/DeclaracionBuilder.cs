@@ -26,7 +26,7 @@ public sealed class DeclaracionBuilder(DeclaracionOpciones op)
                     OrganizationCode = organizacion ?? op.OrganizationCode,
                     WorkOrderNumber = moto.OtFusion,
                     WoOperationSequenceNumber = secuenciaOperacion ?? op.WoOperationSequenceNumber,
-                    TransactionDate = FechaTransaccion(moto.FechaDeclaracion),
+                    TransactionDate = FechaTransaccion(moto.FechaDeclaracion, moto.HoraDeclaracion),
                     TransactionNote = op.TransactionNote,
                     TransactionQuantity = 1,
                     TransactionUnitOfMeasure = op.UnidadMedida,
@@ -62,12 +62,26 @@ public sealed class DeclaracionBuilder(DeclaracionOpciones op)
     }
 
     // Formato del ejemplo de Newsan: "2024-10-10T15:20".
-    private static string FechaTransaccion(string fecha)
+    // La fecha sale de fecha_mov y la hora de hora_comp del comprobante (texto "HHmmss", ej. "120256").
+    // Si la hora no viene o no es válida, se informa 00:00.
+    private static string FechaTransaccion(string fecha, string hora)
     {
-        var valor = DateTime.TryParse(fecha, CultureInfo.InvariantCulture, DateTimeStyles.None, out var f)
-            ? f
-            : DateTime.Now;
-        return valor.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+        var dia = DateTime.TryParse(fecha, CultureInfo.InvariantCulture, DateTimeStyles.None, out var f)
+            ? f.Date
+            : DateTime.Today;
+
+        var digitos = new string(hora.Where(char.IsDigit).ToArray());
+        if (digitos.Length is 3 or 5) digitos = "0" + digitos; // por si la hora viene sin el cero inicial
+
+        if (digitos.Length >= 4
+            && int.TryParse(digitos[..2], out var hh)
+            && int.TryParse(digitos[2..4], out var mm)
+            && hh < 24 && mm < 60)
+        {
+            dia = dia.AddHours(hh).AddMinutes(mm);
+        }
+
+        return dia.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
     }
 
     // PROVISORIO: el año modelo sale de la columna MODELO del PPL. Mientras no se defina dónde

@@ -105,6 +105,7 @@ SELECT
     SPT.n_partida,
     S6.cod_deposi,
     EM.fecha_mov        AS fecha_declaracion,
+    EM.hora_comp        AS hora_declaracion,
     EM.t_comp           AS tipo_comprob,
     EM.n_comp           AS nro_comprob
 FROM CZSERIES_PRODUCIDAS_OT SPT
@@ -126,6 +127,7 @@ Notas:
 - PS078 exige como columnas obligatorias `COD_ARTICU`, `COD_DEPOSI`, `N_PARTIDA`, `N_SERIE` (por eso está `cod_deposi`).
 - El VIN y el motor se leen de **STA06** para tomar siempre el valor corregido.
 - La unión con la OT compara el número sin espacios, porque en algunas vistas viene con un espacio adelante.
+- `hora_declaracion` sale de `CZSTA14.hora_comp` (texto `HHmmss`, ej. `120256`). El programa la combina con la fecha para armar `TransactionDate` (ej. `2026-10-07T12:02`).
 - Probado en SSMS el 08/10: devuelve `ot_fusion = PCANS-1030` para las motos de la OT 75. **Pendiente:** actualizar la consulta en CAPATAZ y volver a probar por API.
 
 ## 7. Lectura por API (probada)

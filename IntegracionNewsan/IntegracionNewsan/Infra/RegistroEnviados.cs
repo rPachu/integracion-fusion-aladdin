@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using IntegracionNewsan.Modelos;
 
@@ -9,7 +10,11 @@ namespace IntegracionNewsan.Infra;
 /// </summary>
 public sealed class RegistroEnviados
 {
-    private static readonly JsonSerializerOptions OpcionesJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions OpcionesJson = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // para que las tildes se guarden tal cual
+    };
 
     private readonly string _archivo;
     private readonly Dictionary<string, EntradaRegistro> _entradas;

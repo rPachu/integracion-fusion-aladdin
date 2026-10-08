@@ -96,7 +96,7 @@ async Task<int> CorrerAsync(CancellationToken ct)
         var disponible = await envio.ObtenerDisponibleAsync(grupo.Key, ct);
         var usadas = 0;
 
-        foreach (var moto in grupo.OrderBy(x => x.FechaDeclaracion).ThenBy(x => x.NroSerie))
+        foreach (var moto in grupo.OrderBy(x => x.FechaDeclaracion).ThenBy(x => x.HoraDeclaracion).ThenBy(x => x.NroSerie))
         {
             // Regla de Newsan: no se puede declarar más de lo que figura como ReadyQuantity en la OT.
             if (disponible.HasValue && usadas >= disponible.Value)
