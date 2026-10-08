@@ -426,3 +426,12 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+
+# --- IntegracionNewsan ---
+# Contraseñas: nunca se suben al repositorio
+appsettings.Local.json
+# Archivos que genera el programa al correr
+**/salida/
+**/logs/
+**/estado/
