@@ -1,6 +1,6 @@
 # ALADDIN – Registro de pruebas: integración CAPATAZ → Fusion
 
-**Última actualización:** 08/10/2026
+**Última actualización:** 14/10/2026
 **Entorno:** CAPATAZ 26.01.007 · empresa de prueba "Muestra Comercial" (RA 11 25, `idEmp` 667) · API en `http://localhost:18001` · Tango 25.1
 **Uso:** documento interno del consultor. Todas las pruebas se hicieron en el entorno de pruebas, no en la base de ALADDIN.
 
@@ -20,6 +20,16 @@
 - **OT de Fusion por lote:** llega a Noelia en un **Google Sheet** de OP.
 - **Modelo y cantidad por embarque:** llegan en el **PPL** del embarque (CBU o IKD). El año modelo se toma de la columna **MODELO** del PPL.
 - **OT de prueba en Fusion TEST:** la provee Sofía al momento de probar.
+
+### Respuestas de Newsan (Noelia / Sofía, 09 al 13/10)
+
+- **Google Sheet de OP:** una fila por OP (modelo y color): PO, EMB, Alterno (variante de BOM), OP, Ingreso a producción (lo estima Newsan y lo valida Aladdin), CODIGO (SKU), MODELO, QTY, Ritmo, Remanente y plan diario.
+- **OP:** hoy se crea en **EBS** (pantalla "Resumen de Trabajos Discontinuos", organización NV1). Formato `OP-` + embarque + color, **con variantes** (`AZ`/`AZU`, `BL`/`BLA`/`BLANCO`). Si en Fusion tiene la misma nomenclatura o no, **está pendiente** (lo consulta Noelia).
+- **Número de serie:** lo genera **Aladdin**. Formato `073-NNNNNNNNN/AAAA`: prefijo 073 (dato fiscal), **9 dígitos**, **año calendario**. **Una sola numeración correlativa**, no por modelo. Newsan informa el último número usado. Ejemplo real DNRPA: `073-000075035/2026`. **Pendiente:** si se reinicia el 1/1.
+- **Año modelo:** distinto del año de la serie (hoy series /2026 con año modelo 2027). Lo define planta al grabar el chasis. Se toma del **carácter 10 del VIN** (ISO 3779; en el ejemplo DNRPA, `V` = 2027). A confirmar en UAT.
+- **VIN y motor:** en KIT se generan en planta y se **escanean** al declarar. En CBU vienen en el PPL.
+- **LPN (`ExternalSystemPackingUnit`):** obligatorio, lo genera nuestro sistema, empieza con "LPN", sin otro formato. Se admiten duplicados, pero lo ideal es **uno por moto**, **impreso en la moto**.
+- **Pantalla de declaración de Fusion** (enviada por Noelia): LPN, Trabajo, Producto, Ctd Disponible, Ctd, Desde Sec, Desde Paso, Motor, VIN. Coincide con el payload.
 
 ### Payload de la declaración (por moto)
 
@@ -188,16 +198,100 @@ Otras pruebas, sin resultado útil:
 - Comentario de la serie en Ingreso de Stock: se guarda en STA07, no en DESC1/DESC2.
 - `UB201/TomaInventario`: no se probó (ya no forma parte del alcance).
 
+## 9.1 Pruebas del programa (08/10/2026, PC de la oficina)
+
+| # | Origen | Resultado |
+|---|---|---|
+| 1 | ArchivoPrueba | TEST-0002 genera el JSON; `124` queda rechazada (falta VIN y número de motor). |
+| 2 | ArchivoPrueba | TEST-0002 no se repite: figura en `estado\enviados.json`. |
+| 3 | ArchivoPrueba | Después de borrar `enviados.json`, se vuelve a generar. |
+| 4 | ArchivoPrueba (actualización 1) | `TransactionDate` = `2026-10-07T12:02` (antes `T00:00`). `enviados.json` muestra "Simulación" con tilde. |
+| 5 | **Api** | "Sesión iniciada en la API de CAPATAZ." Lee 2 motos; `124` rechazada; TEST-0002 genera `20261008_115958_PCANS-1030_TEST-0002.json` con `TransactionDate` `2026-10-07T12:02`, tomado de `hora_declaracion` de la consulta. Código de salida 0. |
+
+El JSON generado respeta la estructura del payload de Sofía (sección 2). Versiones en el repo: "Proyecto inicial del programa" y "Hora en la declaracion y tildes en el registro".
+
+## 9.2 Relojes y horas
+
+Visto en las pruebas: la PC de la oficina está unos 3 minutos desfasada de la PC personal y unos 5 o 6 minutos del servidor de base de datos (estimación del consultor, no medida).
+
+| Hora | De dónde sale | Para qué sirve |
+|---|---|---|
+| `TransactionDate` (lo que recibe Fusion) | `CZSTA14.hora_comp`, grabada por CAPATAZ al declarar | **Es la hora oficial de la declaración.** |
+| Nombre de los archivos en `salida\`, log, `FechaEnvio` en `enviados.json` | Reloj de la PC donde corre el programa | Solo trazabilidad. No se usa para decidir nada (el control de duplicados es por artículo + serie). |
+
+En la serie TEST-0002: `hora_comp` = 12:02:56 y `hora_ingreso` = 11:56:48 (unos 6 minutos de diferencia). **No está verificado** qué reloj usa cada campo (la terminal o el servidor SQL).
+
+**A verificar:**
+- Declarar una moto anotando la hora de la terminal y la del servidor, y comparar con `hora_comp` y `hora_ingreso`.
+- En las pruebas con Sofía: si Fusion rechaza una `TransactionDate` posterior a su hora actual.
+
+**Recomendación para producción:** que IT (Martín) sincronice la hora de las terminales donde se declara, del servidor SQL y de la PC donde corra el programa (dominio o servidor de hora).
+
+## 9.3 Numeración automática de series (13–14/10)
+
+- **No hay** numeración automática en Parámetros de Stock (Tango) ni en la ficha del artículo.
+- **Sí existe en CAPATAZ:** Extensión de artículos → solapa **Calidad** → "Código de función para números de series". Trae **COMP** (`dbo.CZFN_N_SERIE_COMP`: comprobante + correlativo) y **NUME**.
+- Las funciones se ven en el **Editor SQL** de CAPATAZ (Funciones de Nro. Serie). **No hay botón "Nuevo": se crea con "Copiar".** El nombre queda `CZFN_N_SERIE_` + código, se muestra en negrita (personalizada) y aparece en el desplegable del artículo. "Eliminar Personalización" dio error en la copia; no hizo falta borrarla.
+- Firma de la función (script exportado): parámetros `@cod_articu varchar(15)`, `@cant decimal(16,6)`, `@t_comp varchar(3)`, `@n_comp varchar(14)`, `@comentario varchar(15)`; devuelve `@series (id, n_serie varchar(20), desc1 varchar(15), desc2 varchar(15), comentario varchar(25))`.
+- **Función propia `dbo.CZFN_N_SERIE_NSAN` (código NSAN):** `073-` + 9 dígitos + `/` + año del servidor SQL. Toma el `073-` más alto existente en CZSTA07 (de cualquier artículo) y suma 1. Parámetros internos: `@ultimo_newsan` (número inicial) y `@reinicia_anual` (0/1). Saltea números existentes.
+  - Prueba por SQL (`SELECT * FROM dbo.CZFN_N_SERIE_NSAN('MOTOQUBASEAZ', 2, 'ICA', '0000100000099', '')`): devolvió 006 y 007. ✔
+  - Prueba declarando (OT 77, 2 unidades): generó `073-000000006/2026` y `/007`. ✔
+- **Con función asignada, la fila de Series queda bloqueada:** no se puede cargar N_SERIE, VIN ni motor al declarar. La Gestión integral de series y Transferir series tampoco permiten editar DESC1/DESC2.
+- **Decisión:** declarar con serie automática y **cargar VIN y motor después en Tango → Mantenimiento de Series (por Artículo)**. Consulta enviada a ULASOFT por si se pueden cargar al declarar.
+- **Etiquetas:** desde el movimiento de stock → Etiqueta, "Con detalle de números de series": una etiqueta por serie con QR, artículo, OT, comprobante y partida.
+- **Parámetros RANGO_DE_SERIES** (indicador `-`, relleno `/`): se probó que `073-000000001/2026` se graba como una sola serie. ✔
+- **Riesgo abierto:** dos puestos declarando al mismo tiempo podrían recibir el mismo número (la función calcula, no reserva). Mitigación: confirmar cantidad de puestos con Martín y detección de duplicados en el programa (hecha en la actualización 2).
+
+## 9.4 Prueba con artículo moto (13–14/10)
+
+- Artículo de prueba **`MOTOQUBASEAZ`** (copia de la tablet). Observación: el SKU de Newsan `91CUBQU110BASEAZUL` tiene **18 caracteres** y el código de artículo admite **15**. Hay que definir la codificación en la puesta en marcha.
+- **OT 76:** 3 motos con serie manual 003, 004 y 005 (la 005 sin VIN ni motor).
+  - Corrida 1: 003 y 004 enviadas; 005 retenida. ✔
+  - Se cargaron VIN y motor de la 005 en Tango (Mantenimiento de Series). Corrida 2: 005 enviada; el resto como ya enviadas. ✔ **El flujo "carga posterior en Tango" funciona.**
+- **OT 77:** 2 motos con función NSAN (006 y 007).
+  - Corrida sin Leyenda 1: retenidas por "Falta OT de Fusion". ✔
+  - Con Leyenda: enviadas. ✔
+- Los JSON salieron con `anoModelo` 2026 cuando el VIN indicaba 2027 (valor por defecto). Se corrigió en la actualización 2.
+
+## 9.5 Actualización 2 del programa (14/10)
+
+- **Formato de la serie:** se exige `073-NNNNNNNNN/AAAA` (configurable en `FormatoSerie`). Si no cumple, no se envía.
+- **Año modelo desde el VIN:** carácter 10 (ISO 3779), eligiendo el año más cercano a la declaración. El VIN debe tener 17 caracteres y el año modelo no puede diferir más de `ToleranciaAnoModelo` (1) del año de la declaración. Se eliminó el año por defecto.
+- **LPN:** `PrefijoLpn` + serie con `/` → `-` (ej. `LPN073-000000006-2026`).
+- **Series duplicadas:** si la misma serie aparece en dos motos distintas, o ya se envió con otro artículo, **no se envía** y queda un ERROR (código de salida 1).
+- Pendiente de compilar y probar en la PC de la oficina.
+
 ## 10. Pendientes
 
-**De Newsan (consultado a Martín el 08/10):**
-- Quién genera el **número de serie** (`073-…/2026`) de las motos que arma Aladdin (IKD). En el PPL de KIT la hoja IDENTIFICACION viene vacía; en el de CBU trae serie, VIN, motor y modelo.
-- **Ejemplo real del Google Sheet** de OP.
-- Qué es el campo **`ExternalSystemPackingUnit`** (`LPNF-…`), si es obligatorio y de dónde sale.
-- Usuario técnico para la conexión del proceso (se coordina al probar).
+**De Newsan:**
+- Número de la orden de trabajo en **Fusion** (¿igual a la OP de EBS?).
+- Si la numeración de serie **se reinicia el 1/1**.
+- Confirmar que el año modelo sale del carácter 10 del VIN.
+- URL de TEST, usuario técnico, autenticación, OT de prueba, IP a habilitar, contacto técnico directo (reunión de UAT 14/10).
 
-**Nuestros:**
-- Actualizar la consulta "Integracion Fusion" en CAPATAZ (con `ot_fusion`) y probarla por API.
-- Desarrollar el programa en C#.
-- Replicar la configuración (sección 4) en la empresa de motos del servidor de ALADDIN.
-- Verificar qué pasa con la serie en STA06 cuando la moto sale del depósito (transferencia a PCA).
+**De Martín:**
+- Cantidad de puestos que declaran.
+- Empresa de prueba de motos en el servidor de ALADDIN, API de CAPATAZ instalada, equipo donde corre el programa y su salida a internet.
+- Codificación de artículos (SKU de 18 caracteres frente a 15).
+
+**De ULASOFT:**
+- ¿Se pueden cargar DESC1/DESC2 al declarar con función de numeración asignada?
+- ¿Se puede modificar el diseño de la etiqueta de series (para agregar el LPN)?
+
+**Nuestros – pruebas en CAPATAZ:**
+- Misma serie en dos artículos distintos (¿Tango lo acepta?).
+- Anular una declaración (qué pasa con la serie y con lo ya enviado).
+- Corregir el VIN después de enviada (definir procedimiento).
+- Sacar la moto del depósito (¿se mantienen VIN y motor en STA06?).
+- Función NSAN con número inicial (`@ultimo_newsan`).
+- Ventana de 30 días de la consulta.
+
+**Nuestros – programa:**
+- Compilar y probar la actualización 2.
+- Envío real a Fusion (cuando haya credenciales) y "Fusion falso" para probarlo.
+- Aviso de errores (mail u otro medio): a definir.
+- Publicarlo y correrlo con el Programador de tareas.
+
+**Nuestros – documentación:**
+- Guía de replicación para ALADDIN.
+- Instructivo operativo (versión 1 hecha el 14/10).

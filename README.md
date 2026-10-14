@@ -67,8 +67,9 @@ Para crear `appsettings.Local.json`, copiar `appsettings.Local.example.json`, re
 | `Capataz.IdEmpresa` | Id de la empresa en CAPATAZ (header `idEmp`) |
 | `Capataz.IdConsulta` | Id de la consulta "Integracion Fusion". **Cambia en cada instalación** |
 | `Declaracion.OrganizationCode` | Organización de Fusion (en el ejemplo de Newsan: `PCANS`) |
-| `Declaracion.AnoModeloPorDefecto` | Año modelo si no viene en el comentario de la serie (provisorio) |
-| `Declaracion.ExternalSystemPackingUnit` | Pendiente de definición de Newsan. Vacío = no se envía |
+| `Declaracion.PrefijoLpn` | Prefijo del LPN (`LPN`). El LPN se arma con la serie: `LPN073-000000006-2026` |
+| `Declaracion.FormatoSerie` | Formato exigido para la serie (expresión regular): `073-NNNNNNNNN/AAAA` |
+| `Declaracion.ToleranciaAnoModelo` | Diferencia máxima entre el año modelo (del VIN) y el año de la declaración |
 | `Ejecucion.Origen` | `Api` (lee de CAPATAZ) o `ArchivoPrueba` (lee `datos-prueba/consulta-ejemplo.json`, para probar sin la API) |
 | `Ejecucion.ModoEnvio` | `Simulacion` (guarda los JSON) o `Fusion` (envío real, pendiente) |
 | `Ejecucion.RegistrarEnviadosEnSimulacion` | Si es `true`, en simulación las motos quedan marcadas como enviadas |
@@ -142,4 +143,6 @@ IntegracionNewsan/IntegracionNewsan/
 ## 8. Pendientes
 
 - **Envío real a Fusion** (`Envio/EnvioFusion.cs`): implementar cuando Newsan defina el usuario técnico y la autenticación.
-- Confirmar con Newsan: origen del **número de serie** (`073-…/2026`), el campo **`ExternalSystemPackingUnit`** y dónde queda el **año modelo** en CAPATAZ.
+- Confirmar con Newsan: número de la orden en Fusion; si la serie se reinicia cada año; que el año modelo sale del carácter 10 del VIN.
+- Aviso de errores (mail u otro medio): a definir.
+- Transferir este repositorio a una cuenta u organización de ULASOFT.

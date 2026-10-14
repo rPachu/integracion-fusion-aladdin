@@ -72,19 +72,45 @@ async Task<int> CorrerAsync(CancellationToken ct)
     foreach (var moto in motos) moto.Normalizar();
     log.Info($"Motos leídas: {motos.Count} ({origen.Descripcion}).");
 
-    int yaEnviadas = 0, incompletas = 0, enviadas = 0, sinDisponible = 0, erroresEnvio = 0;
+    int yaEnviadas = 0, incompletas = 0, duplicadas = 0, enviadas = 0, sinDisponible = 0, erroresEnvio = 0;
     var candidatas = new List<MotoDeclarada>();
+
+    // Series repetidas en motos distintas (otro artículo): puede pasar si dos puestos declaran
+    // al mismo tiempo y la función de numeración les da el mismo número. Ninguna se envía.
+    var seriesRepetidas = motos
+        .Where(m => m.NroSerie != "")
+        .GroupBy(m => m.NroSerie, StringComparer.OrdinalIgnoreCase)
+        .Where(g => g.Select(m => m.Clave).Distinct().Count() > 1)
+        .Select(g => g.Key)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     foreach (var moto in motos)
     {
         if (registro.YaEnviado(moto.Clave)) { yaEnviadas++; continue; }
+
+        if (seriesRepetidas.Contains(moto.NroSerie))
+        {
+            duplicadas++;
+            log.Error($"Serie '{moto.NroSerie}' (artículo {moto.CodArticulo}, OT CAPATAZ {moto.NroOt}): NO se envía. " +
+                      "La misma serie aparece en más de una moto. Revisar en CAPATAZ y corregir.");
+            continue;
+        }
+
+        var previa = registro.SerieEnviadaConOtraClave(moto.NroSerie, moto.Clave);
+        if (previa is not null)
+        {
+            duplicadas++;
+            log.Error($"Serie '{moto.NroSerie}' (artículo {moto.CodArticulo}, OT CAPATAZ {moto.NroOt}): NO se envía. " +
+                      $"Esa serie ya se envió el {previa.FechaEnvio:dd/MM/yyyy HH:mm} con otro artículo ({previa.Clave}). Revisar en CAPATAZ.");
+            continue;
+        }
 
         var faltantes = Validar(moto);
         if (faltantes.Count > 0)
         {
             // No se manda: alguien tiene que completar el dato (en CAPATAZ o en Tango) y sale en la próxima corrida.
             incompletas++;
-            log.Advertencia($"Serie '{moto.NroSerie}' (OT CAPATAZ {moto.NroOt}): no se envía. Falta: {string.Join(", ", faltantes)}.");
+            log.Advertencia($"Serie '{moto.NroSerie}' (OT CAPATAZ {moto.NroOt}): no se envía. {string.Join(" · ", faltantes)}.");
             continue;
         }
 
@@ -125,19 +151,39 @@ async Task<int> CorrerAsync(CancellationToken ct)
     }
 
     log.Info($"Resumen: leídas {motos.Count} · ya enviadas {yaEnviadas} · incompletas {incompletas} · " +
-             $"enviadas {enviadas} · sin disponible {sinDisponible} · errores de envío {erroresEnvio}.");
+             $"series duplicadas {duplicadas} · enviadas {enviadas} · sin disponible {sinDisponible} · errores de envío {erroresEnvio}.");
 
-    return erroresEnvio > 0 ? 1 : 0;
+    // Código 1 = hay algo que alguien tiene que revisar (errores de envío o series duplicadas).
+    return erroresEnvio > 0 || duplicadas > 0 ? 1 : 0;
 }
 
-static List<string> Validar(MotoDeclarada moto)
+// Devuelve los problemas de la moto (vacío = se puede enviar).
+List<string> Validar(MotoDeclarada moto)
 {
-    var faltantes = new List<string>();
-    if (string.IsNullOrWhiteSpace(moto.NroSerie)) faltantes.Add("número de serie");
-    if (string.IsNullOrWhiteSpace(moto.Vin)) faltantes.Add("VIN");
-    if (string.IsNullOrWhiteSpace(moto.NroMotor)) faltantes.Add("número de motor");
-    if (string.IsNullOrWhiteSpace(moto.OtFusion)) faltantes.Add("OT de Fusion (Leyenda 1 de la OT)");
-    return faltantes;
+    var op = opciones.Declaracion;
+    var problemas = new List<string>();
+
+    var faltan = new List<string>();
+    if (moto.NroSerie == "") faltan.Add("número de serie");
+    if (moto.Vin == "") faltan.Add("VIN");
+    if (moto.NroMotor == "") faltan.Add("número de motor");
+    if (moto.OtFusion == "") faltan.Add("OT de Fusion (Leyenda 1 de la OT)");
+    if (faltan.Count > 0) problemas.Add("Falta: " + string.Join(", ", faltan));
+
+    if (moto.NroSerie != "" && !ReglasMoto.SerieValida(moto.NroSerie, op.FormatoSerie))
+        problemas.Add("Número de serie con formato inválido (se espera 073-NNNNNNNNN/AAAA)");
+
+    if (moto.Vin != "")
+    {
+        var anoDeclaracion = ReglasMoto.AnoDeclaracion(moto.FechaDeclaracion);
+        var anoModelo = ReglasMoto.AnoModeloDesdeVin(moto.Vin, anoDeclaracion, out var motivo);
+        if (anoModelo is null)
+            problemas.Add($"No se puede obtener el año modelo: {motivo}");
+        else if (Math.Abs(anoModelo.Value - anoDeclaracion) > op.ToleranciaAnoModelo)
+            problemas.Add($"Año modelo {anoModelo} (según el VIN) no coherente con la declaración de {anoDeclaracion}. Revisar el VIN");
+    }
+
+    return problemas;
 }
 
 static bool EsIgual(string? a, string b) => string.Equals(a?.Trim(), b, StringComparison.OrdinalIgnoreCase);

@@ -32,15 +32,13 @@ public sealed class DeclaracionBuilder(DeclaracionOpciones op)
                     TransactionUnitOfMeasure = op.UnidadMedida,
                     FromDispatchState = op.FromDispatchState,
                     ToDispatchState = op.ToDispatchState,
-                    ExternalSystemPackingUnit = string.IsNullOrWhiteSpace(op.ExternalSystemPackingUnit)
-                        ? null
-                        : op.ExternalSystemPackingUnit,
+                    // LPN: uno por moto, armado desde la serie (definido con Newsan).
+                    ExternalSystemPackingUnit = ReglasMoto.Lpn(moto.NroSerie, op.PrefijoLpn),
                     TransactionSerial =
                     [
                         new SerieTransaccion
                         {
-                            // PENDIENTE (Newsan): confirmar que SerialNumber es el número de serie
-                            // de Newsan (073-…/2026) y de dónde lo obtiene Aladdin.
+                            // Número de serie de Newsan (073-NNNNNNNNN/AAAA), generado en CAPATAZ (función NSAN).
                             SerialNumber = moto.NroSerie,
                             TransactionSerialDFF =
                             [
@@ -84,11 +82,10 @@ public sealed class DeclaracionBuilder(DeclaracionOpciones op)
         return dia.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
     }
 
-    // PROVISORIO: el año modelo sale de la columna MODELO del PPL. Mientras no se defina dónde
-    // queda en CAPATAZ, se toma del comentario de la serie si es un año de 4 dígitos;
-    // si no, se usa el valor por defecto de la configuración.
-    private string AnoModelo(MotoDeclarada moto) =>
-        moto.Comentario.Length == 4 && moto.Comentario.All(char.IsDigit)
-            ? moto.Comentario
-            : op.AnoModeloPorDefecto;
+    // Año modelo desde el carácter 10 del VIN. La moto ya pasó la validación (Program.Validar),
+    // así que acá siempre se puede calcular.
+    private static string AnoModelo(MotoDeclarada moto) =>
+        ReglasMoto.AnoModeloDesdeVin(moto.Vin, ReglasMoto.AnoDeclaracion(moto.FechaDeclaracion), out var motivo)
+            ?.ToString(CultureInfo.InvariantCulture)
+        ?? throw new InvalidOperationException($"No se pudo obtener el año modelo: {motivo}");
 }

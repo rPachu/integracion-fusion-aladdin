@@ -34,6 +34,11 @@ public sealed class RegistroEnviados
 
     public bool YaEnviado(string clave) => _entradas.ContainsKey(clave);
 
+    /// <summary>Si la serie ya se envió con OTRA clave (otro artículo), devuelve esa entrada.</summary>
+    public EntradaRegistro? SerieEnviadaConOtraClave(string serie, string clave) =>
+        _entradas.Values.FirstOrDefault(e =>
+            string.Equals(e.NroSerie, serie, StringComparison.OrdinalIgnoreCase) && e.Clave != clave);
+
     public void Registrar(MotoDeclarada moto, string detalle)
     {
         _entradas[moto.Clave] = new EntradaRegistro

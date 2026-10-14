@@ -48,11 +48,13 @@ public sealed class DeclaracionOpciones
     public string UnidadMedida { get; set; } = "EA";
     public string FromDispatchState { get; set; } = "READY";
     public string ToDispatchState { get; set; } = "COMPLETE";
-    /// <summary>PENDIENTE (Newsan): qué es y si es obligatorio. Vacío = no se envía.</summary>
-    public string ExternalSystemPackingUnit { get; set; } = "";
+    /// <summary>Prefijo del LPN (ExternalSystemPackingUnit). Newsan pide que empiece con "LPN".</summary>
+    public string PrefijoLpn { get; set; } = "LPN";
+    /// <summary>Formato del número de serie (expresión regular). Newsan: 073-NNNNNNNNN/AAAA.</summary>
+    public string FormatoSerie { get; set; } = @"^073-\d{9}/\d{4}$";
+    /// <summary>Diferencia máxima (en años) entre el año modelo del VIN y el año de la declaración.</summary>
+    public int ToleranciaAnoModelo { get; set; } = 1;
     public string FlexContext { get; set; } = "MOTOS";
-    /// <summary>Se usa si el año modelo no viene en el comentario de la serie.</summary>
-    public string AnoModeloPorDefecto { get; set; } = "";
     public string BloqueadoDnrpa { get; set; } = "No";
 }
 

@@ -34,5 +34,41 @@
     "hora_declaracion": "120256",
     "tipo_comprob": "ICA",
     "nro_comprob": " 0000100000002"
+  },
+  {
+    "id": 3,
+    "t_comp": "O/T",
+    "nro_ot": " 000000000077",
+    "ot_fusion": "PCANS-1030",
+    "cod_articu": "MOTOQUBASEAZ",
+    "descripcio": "MOTO QU BASE AZUL",
+    "n_serie": "073-000000006/2026",
+    "vin": "8BFSKP80SVC000056",
+    "nro_motor": "2500413810",
+    "comentario": "",
+    "n_partida": "160",
+    "cod_deposi": "1",
+    "fecha_declaracion": "2026-10-14T00:00:00",
+    "hora_declaracion": "112905",
+    "tipo_comprob": "ICA",
+    "nro_comprob": " 0000100000006"
+  },
+  {
+    "id": 4,
+    "t_comp": "O/T",
+    "nro_ot": " 000000000077",
+    "ot_fusion": "PCANS-1030",
+    "cod_articu": "MOTOQUBASEAZ",
+    "descripcio": "MOTO QU BASE AZUL",
+    "n_serie": "073-000000007/2026",
+    "vin": "8BFSKP80SVC000057",
+    "nro_motor": "2500413811",
+    "comentario": "",
+    "n_partida": "160",
+    "cod_deposi": "1",
+    "fecha_declaracion": "2026-10-14T00:00:00",
+    "hora_declaracion": "112905",
+    "tipo_comprob": "ICA",
+    "nro_comprob": " 0000100000006"
   }
 ]
