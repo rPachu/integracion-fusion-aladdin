@@ -118,9 +118,59 @@ public sealed class EnvioFusion : IEnvioDeclaracion, IDisposable
         var texto = await respuesta.Content.ReadAsStringAsync(ct);
         var archivo = Guardar(nombre, "respuesta", texto);
 
-        return respuesta.IsSuccessStatusCode
-            ? new ResultadoEnvio(true, $"Fusion respondió HTTP {(int)respuesta.StatusCode}. Respuesta en {archivo}")
-            : new ResultadoEnvio(false, $"Fusion respondió HTTP {(int)respuesta.StatusCode}: {Recortar(texto)} (completo en {archivo})");
+        if (!respuesta.IsSuccessStatusCode)
+            return new ResultadoEnvio(false, $"Fusion respondió HTTP {(int)respuesta.StatusCode}: {Recortar(texto)} (completo en {archivo})");
+
+        // Fusion puede responder 201 y aun así rechazar la transacción: en ese caso informa
+        // ErrorsExistFlag = "true" y el motivo en ErrorMessages (verificado en TEST el 21/10).
+        var (hayErrores, mensajes, idTransaccion) = LeerResultado(texto);
+        if (hayErrores)
+            return new ResultadoEnvio(false,
+                $"Fusion RECHAZÓ la transacción (HTTP {(int)respuesta.StatusCode}, ErrorsExistFlag = true): {mensajes} (completo en {archivo})");
+
+        return new ResultadoEnvio(true,
+            $"Fusion respondió HTTP {(int)respuesta.StatusCode}, sin errores. Id de transacción {idTransaccion}. Respuesta en {archivo}");
+    }
+
+    // Lee ErrorsExistFlag, los ErrorMessages (del detalle y de las series) y el WoOperationTransactionId.
+    private static (bool HayErrores, string Mensajes, string IdTransaccion) LeerResultado(string texto)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(texto);
+            var raiz = doc.RootElement;
+            var hayErrores = raiz.TryGetProperty("ErrorsExistFlag", out var flag)
+                             && string.Equals(flag.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+
+            var mensajes = new List<string>();
+            var id = "?";
+            if (raiz.TryGetProperty("OperationTransactionDetail", out var detalles))
+            {
+                foreach (var d in detalles.EnumerateArray())
+                {
+                    AgregarMensaje(d, mensajes);
+                    if (d.TryGetProperty("WoOperationTransactionId", out var idT)) id = idT.ToString();
+                    if (d.TryGetProperty("TransactionSerial", out var series))
+                        foreach (var se in series.EnumerateArray()) AgregarMensaje(se, mensajes);
+                }
+            }
+
+            // Sin id de transacción (0) también se considera rechazo.
+            if (id == "0") hayErrores = true;
+            return (hayErrores, mensajes.Count > 0 ? string.Join(" | ", mensajes) : "(sin mensaje)", id);
+        }
+        catch (JsonException)
+        {
+            return (true, "La respuesta de Fusion no es un JSON válido", "?");
+        }
+    }
+
+    private static void AgregarMensaje(JsonElement e, List<string> mensajes)
+    {
+        var texto = e.TryGetProperty("ErrorMessages", out var m) ? m.ToString() : "";
+        var codigo = e.TryGetProperty("ErrorMessageNames", out var n) ? n.ToString() : "";
+        if (!string.IsNullOrWhiteSpace(texto))
+            mensajes.Add(string.IsNullOrWhiteSpace(codigo) ? texto : $"{codigo}: {texto}");
     }
 
     private string Guardar(string nombre, string tipo, string contenido)
