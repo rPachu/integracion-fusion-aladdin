@@ -26,7 +26,7 @@ public sealed class DeclaracionBuilder(DeclaracionOpciones op)
                     OrganizationCode = organizacion ?? op.OrganizationCode,
                     WorkOrderNumber = moto.OtFusion,
                     WoOperationSequenceNumber = secuenciaOperacion ?? op.WoOperationSequenceNumber,
-                    TransactionDate = FechaTransaccion(moto.FechaDeclaracion, moto.HoraDeclaracion),
+                    TransactionDate = FechaTransaccion(moto.FechaDeclaracion, moto.HoraDeclaracion, op.ZonaHoraria),
                     TransactionNote = op.TransactionNote,
                     TransactionQuantity = 1,
                     TransactionUnitOfMeasure = op.UnidadMedida,
@@ -62,7 +62,8 @@ public sealed class DeclaracionBuilder(DeclaracionOpciones op)
     // Formato del ejemplo de Newsan: "2024-10-10T15:20".
     // La fecha sale de fecha_mov y la hora de hora_comp del comprobante (texto "HHmmss", ej. "120256").
     // Si la hora no viene o no es válida, se informa 00:00.
-    private static string FechaTransaccion(string fecha, string hora)
+    // Si ZonaHoraria tiene valor (ej. "-03:00"), se agrega a la fecha: "2026-10-14T11:26:00-03:00".
+    private static string FechaTransaccion(string fecha, string hora, string zonaHoraria)
     {
         var dia = DateTime.TryParse(fecha, CultureInfo.InvariantCulture, DateTimeStyles.None, out var f)
             ? f.Date
@@ -79,7 +80,9 @@ public sealed class DeclaracionBuilder(DeclaracionOpciones op)
             dia = dia.AddHours(hh).AddMinutes(mm);
         }
 
-        return dia.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+        return string.IsNullOrWhiteSpace(zonaHoraria)
+            ? dia.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture)
+            : dia.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture) + zonaHoraria.Trim();
     }
 
     // Año modelo desde el carácter 10 del VIN. La moto ya pasó la validación (Program.Validar),

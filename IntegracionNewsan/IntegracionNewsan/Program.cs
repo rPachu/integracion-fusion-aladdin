@@ -61,8 +61,9 @@ async Task<int> CorrerAsync(CancellationToken ct)
 
     // Envío: simulación (guarda el JSON en una carpeta) o Fusion (pendiente de credenciales).
     IEnvioDeclaracion envio = EsIgual(ej.ModoEnvio, "Fusion")
-        ? new EnvioFusion(opciones.Fusion)
+        ? new EnvioFusion(opciones.Fusion, opciones.Declaracion, Ruta(ej.CarpetaSalida), log)
         : new EnvioSimulacion(Ruta(ej.CarpetaSalida));
+    using var liberarEnvio = envio as IDisposable;
 
     var registrar = envio is not EnvioSimulacion || ej.RegistrarEnviadosEnSimulacion;
     var registro = new RegistroEnviados(Ruta(ej.CarpetaEstado));
@@ -71,6 +72,12 @@ async Task<int> CorrerAsync(CancellationToken ct)
     var motos = await origen.ObtenerAsync(ct);
     foreach (var moto in motos) moto.Normalizar();
     log.Info($"Motos leídas: {motos.Count} ({origen.Descripcion}).");
+
+    if (!string.IsNullOrWhiteSpace(ej.FiltroOtFusion))
+    {
+        motos = motos.Where(m => EsIgual(m.OtFusion, ej.FiltroOtFusion.Trim())).ToList();
+        log.Info($"Filtro de prueba: solo la OT de Fusion {ej.FiltroOtFusion} ({motos.Count} motos).");
+    }
 
     int yaEnviadas = 0, incompletas = 0, duplicadas = 0, enviadas = 0, sinDisponible = 0, erroresEnvio = 0;
     var candidatas = new List<MotoDeclarada>();
@@ -119,11 +126,33 @@ async Task<int> CorrerAsync(CancellationToken ct)
 
     foreach (var grupo in candidatas.GroupBy(x => x.OtFusion))
     {
-        var disponible = await envio.ObtenerDisponibleAsync(grupo.Key, ct);
+        InfoOrden orden;
+        try
+        {
+            orden = await envio.ConsultarOrdenAsync(grupo.Key, ct);
+            log.Info(orden.Detalle);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Sin poder consultar la orden no se declara nada de ella; se reintenta en la próxima corrida.
+            erroresEnvio += grupo.Count();
+            log.Error($"OT de Fusion {grupo.Key}: no se envían sus {grupo.Count()} motos. {ex.Message}");
+            continue;
+        }
+
+        var disponible = opciones.Fusion.ControlarDisponible || envio is EnvioSimulacion ? orden.Disponible : null;
+        if (!opciones.Fusion.ControlarDisponible && envio is not EnvioSimulacion)
+            log.Advertencia("ControlarDisponible = false: se envía sin controlar ReadyQuantity (solo para pruebas).");
         var usadas = 0;
 
         foreach (var moto in grupo.OrderBy(x => x.FechaDeclaracion).ThenBy(x => x.HoraDeclaracion).ThenBy(x => x.NroSerie))
         {
+            if (ej.MaximoEnvios > 0 && enviadas + erroresEnvio >= ej.MaximoEnvios)
+            {
+                log.Info($"Serie '{moto.NroSerie}': queda para la próxima corrida (MaximoEnvios = {ej.MaximoEnvios}).");
+                continue;
+            }
+
             // Regla de Newsan: no se puede declarar más de lo que figura como ReadyQuantity en la OT.
             if (disponible.HasValue && usadas >= disponible.Value)
             {
@@ -132,7 +161,7 @@ async Task<int> CorrerAsync(CancellationToken ct)
                 continue;
             }
 
-            var declaracion = builder.Armar(moto);
+            var declaracion = builder.Armar(moto, secuenciaOperacion: orden.SecuenciaOperacion);
             var resultado = await envio.EnviarAsync(moto, declaracion, ct);
 
             if (resultado.Ok)

@@ -26,13 +26,21 @@ public sealed class CapatazOpciones
     public int TimeoutSegundos { get; set; } = 60;
 }
 
-/// <summary>Conexión a Oracle Fusion (Newsan). PENDIENTE: usuario técnico y autenticación.</summary>
+/// <summary>Conexión a Oracle Fusion (Newsan). Autenticación básica con el usuario técnico.</summary>
 public sealed class FusionOpciones
 {
-    /// <summary>Ej.: https://xxxx.fa.ocs.oraclecloud.com</summary>
+    /// <summary>Ej.: https://hdqc-dev1.fa.ocs.oraclecloud.com (TEST)</summary>
     public string UrlBase { get; set; } = "";
     public string Usuario { get; set; } = "";
+    /// <summary>Va en appsettings.Local.json (NO se sube al repositorio).</summary>
     public string Password { get; set; } = "";
+    public string VersionApi { get; set; } = "11.13.18.05";
+    public int TimeoutSegundos { get; set; } = 60;
+    /// <summary>
+    /// true = no se envía más que ReadyQuantity (regla de Newsan). false = se envía igual,
+    /// solo para probar con Newsan el rechazo de Fusion. En producción, siempre true.
+    /// </summary>
+    public bool ControlarDisponible { get; set; } = true;
 }
 
 /// <summary>Valores fijos del JSON de declaración de producto terminado.</summary>
@@ -44,6 +52,8 @@ public sealed class DeclaracionOpciones
     public string OrganizationCode { get; set; } = "";
     /// <summary>Secuencia de la operación en la OT. Con el envío real se toma de la consulta a la OT.</summary>
     public int WoOperationSequenceNumber { get; set; } = 10;
+    /// <summary>Zona horaria a agregar a TransactionDate (ej. "-03:00"). Vacío = sin zona, como el ejemplo de Newsan.</summary>
+    public string ZonaHoraria { get; set; } = "";
     public string TransactionNote { get; set; } = "Declaracion CAPATAZ Aladdin";
     public string UnidadMedida { get; set; } = "EA";
     public string FromDispatchState { get; set; } = "READY";
@@ -68,6 +78,10 @@ public sealed class EjecucionOpciones
     public string ModoEnvio { get; set; } = "Simulacion";
     /// <summary>Si es true, en simulación las motos quedan marcadas como enviadas (igual que en el envío real).</summary>
     public bool RegistrarEnviadosEnSimulacion { get; set; } = true;
+    /// <summary>Solo procesa motos de esta OT de Fusion (vacío = todas). Para pruebas controladas.</summary>
+    public string FiltroOtFusion { get; set; } = "";
+    /// <summary>Máximo de motos a enviar en una corrida (0 = sin límite). Para pruebas controladas.</summary>
+    public int MaximoEnvios { get; set; } = 0;
     public string CarpetaSalida { get; set; } = "salida";
     public string CarpetaLogs { get; set; } = "logs";
     public string CarpetaEstado { get; set; } = "estado";

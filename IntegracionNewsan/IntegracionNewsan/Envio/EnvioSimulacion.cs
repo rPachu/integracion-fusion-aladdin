@@ -28,7 +28,8 @@ public sealed class EnvioSimulacion : IEnvioDeclaracion
     }
 
     // En simulación no se consulta Fusion: no hay límite de cantidad.
-    public Task<int?> ObtenerDisponibleAsync(string otFusion, CancellationToken ct) => Task.FromResult<int?>(null);
+    public Task<InfoOrden> ConsultarOrdenAsync(string otFusion, CancellationToken ct) =>
+        Task.FromResult(new InfoOrden(null, null, "Simulación: no se consulta Fusion."));
 
     public async Task<ResultadoEnvio> EnviarAsync(MotoDeclarada moto, DeclaracionPT declaracion, CancellationToken ct)
     {
