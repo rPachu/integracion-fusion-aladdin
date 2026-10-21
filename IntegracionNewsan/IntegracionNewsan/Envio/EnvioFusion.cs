@@ -99,10 +99,12 @@ public sealed class EnvioFusion : IEnvioDeclaracion, IDisposable
         var detalle = $"Orden {otFusion}: operación {secuencia?.ToString() ?? "?"} · ReadyQuantity {lista?.ToString() ?? "?"} · " +
                       $"CompletedQuantity {completa?.ToString() ?? "?"} · ReceivedQuantity {recibida?.ToString() ?? "?"}";
 
+        // Fusion informa las cantidades en cero como null (verificado en TEST el 21/10 con PCANS-1012:
+        // OC aprobada por 2, sin recibir → ReadyQuantity null). Null = 0: no hay nada para declarar.
         if (lista is null)
-            _log.Advertencia($"{detalle}. No vino ReadyQuantity: no se puede controlar el disponible (ver salida\\fusion).");
+            _log.Advertencia($"{detalle}. ReadyQuantity vacío en Fusion: se toma como 0 (no hay cantidad disponible para declarar).");
 
-        return new InfoOrden(lista, secuencia, detalle);
+        return new InfoOrden(lista ?? 0, secuencia, detalle);
     }
 
     public async Task<ResultadoEnvio> EnviarAsync(MotoDeclarada moto, DeclaracionPT declaracion, CancellationToken ct)
